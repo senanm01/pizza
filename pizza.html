@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pizza Party Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: linear-gradient(to bottom right, #ffe6a7, #ff9999);
+      overflow-x: hidden;
+    }
+    h1 {
+      text-align: center;
+      color: #ff6600;
+      text-shadow: 2px 2px #fff;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    #pizzaCount {
+      font-size: 2em;
+      margin-bottom: 20px;
+      text-align: center;
+      color: #cc3300;
+      text-shadow: 1px 1px #fff;
+    }
+    .top-section {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 40px;
+      margin-bottom: 30px;
+    }
+    .teacher-container {
+      position: relative;
+      display: inline-block;
+    }
+    .teacher-img {
+      width: 200px;
+      border-radius: 10px;
+      /* Removed border/shadow */
+      animation: swing 2s infinite alternate;
+    }
+    @keyframes swing {
+      0% { transform: rotate(-10deg); }
+      100% { transform: rotate(10deg); }
+    }
+    .speech-bubble {
+      position: absolute;
+      top: -60px;
+      left: 20%; /* moved more to the left */
+      transform: translateX(-50%);
+      background: #fff7cc;
+      border-radius: 15px;
+      padding: 10px 15px;
+      font-weight: bold;
+      min-width: 180px;
+      display: none;
+      box-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+      animation: bounce 0.5s ease-out;
+    }
+    .speech-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 10px;
+      border-style: solid;
+      border-color: #fff7cc transparent transparent transparent;
+    }
+    @keyframes bounce {
+      0% { transform: translateY(-20px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+    table {
+      border-collapse: collapse;
+      width: 400px;
+      background: #fff0cc;
+      border-radius: 10px;
+      box-shadow: 2px 2px 12px rgba(0,0,0,0.2);
+    }
+    th, td {
+      border: 1px solid #ff6600;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background: #ffcc66;
+    }
+    .name-btn {
+      padding: 10px 15px;
+      margin: 5px;
+      cursor: pointer;
+      background: linear-gradient(to bottom, #ffcc66, #ff9966);
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 1px 1px #990000;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .name-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 2px 2px 12px rgba(0,0,0,0.4);
+    }
+    #portal { display: none; margin-top: 20px; text-align: center; }
+    #loginBox { text-align: center; margin-top: 20px; }
+
+    /* Fixed floating pizzas */
+    .pizza {
+      position: fixed;
+      width: 60px;
+      pointer-events: none;
+      animation: float 5s linear forwards, spin 2s linear infinite;
+    }
+    @keyframes float {
+      0% { transform: translateY(100vh) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <h1>🍕 Pizza Party Tracker 🍕</h1>
+  <div id="pizzaCount">Loading...</div>
+
+  <div class="top-section">
+    <!-- Teacher image + bubble -->
+    <div class="teacher-container">
+      <img src="luke0.png" alt="Physics Teacher" class="teacher-img">
+      <div id="speech" class="speech-bubble"></div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div>
+      <h2 style="text-align:center;">Leaderboard of Shame</h2>
+      <table id="leaderboard">
+        <thead>
+          <tr><th>Name</th><th>Missed Homeworks</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Teacher login -->
+  <div id="loginBox">
+    <h3>Teacher Portal Login</h3>
+    <input type="password" id="passwordInput" placeholder="Enter password">
+    <button onclick="login()">Login</button>
+  </div>
+
+  <!-- Teacher portal -->
+  <div id="portal">
+    <h2>Teacher Controls</h2>
+    <div id="buttons"></div>
+  </div>
+
+  <audio id="siren" src="siren.mp3" preload="auto"></audio>
+
+  <script>
+    const PASSWORD = "masteryoda";
+
+    async function fetchData() {
+      const res = await fetch("data.json?cachebust=" + Date.now());
+      const data = await res.json();
+
+      document.getElementById("pizzaCount").textContent =
+        "Slices Remaining: " + data.pizzaSlices;
+
+      const tbody = document.querySelector("#leaderboard tbody");
+      tbody.innerHTML = "";
+      Object.entries(data.missedWork)
+        .sort((a, b) => b[1] - a[1])
+        .forEach(([name, count]) => {
+          tbody.innerHTML += `<tr><td>${name}</td><td>${count}</td></tr>`;
+        });
+
+      return data;
+    }
+
+    function login() {
+      const input = document.getElementById("passwordInput").value;
+      if (input === PASSWORD) {
+        document.getElementById("portal").style.display = "block";
+        document.getElementById("loginBox").style.display = "none";
+        loadButtons();
+      } else {
+        alert("Wrong password!");
+      }
+    }
+
+    async function loadButtons() {
+      const data = await fetchData();
+      const container = document.getElementById("buttons");
+      container.innerHTML = "";
+      Object.keys(data.missedWork).forEach(name => {
+        const btn = document.createElement("button");
+        btn.textContent = name;
+        btn.className = "name-btn";
+        btn.onclick = () => update(name);
+        container.appendChild(btn);
+      });
+    }
+
+    async function update(name) {
+      await fetch("update.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "name=" + encodeURIComponent(name) + "&password=" + encodeURIComponent(PASSWORD)
+      });
+
+      const data = await fetchData();
+
+      // Siren
+      document.getElementById("siren").play();
+
+      // Speech bubble with float pizzas
+      const pizzas = (data.pizzaSlices / 8).toFixed(3);
+      const speech = document.getElementById("speech");
+      speech.textContent = `There are ${pizzas} pizzas remaining`;
+      speech.style.display = "block";
+      setTimeout(() => { speech.style.display = "none"; }, 5000);
+
+      // Floating pizza images
+      for (let i = 0; i < 5; i++) {
+        const pizza = document.createElement("img");
+        pizza.src = "pizza0.png"; 
+        pizza.className = "pizza";
+        pizza.style.left = Math.random() * (window.innerWidth - 60) + "px";
+        pizza.style.width = (40 + Math.random()*40) + "px";
+        document.body.appendChild(pizza);
+        setTimeout(() => pizza.remove(), 5000);
+      }
+
+      loadButtons();
+    }
+
+    fetchData();
+    setInterval(fetchData, 5000);
+  </script>
+</body>
+</html>
